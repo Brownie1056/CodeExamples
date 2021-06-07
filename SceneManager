@@ -1,0 +1,146 @@
+extends Node
+
+# -------- List all Scenes here --------------------
+const Overworld := "res://World/OverWorld/OverviewMap.tscn"
+const Combat := "res://World/CombatMaps/TestCombatMap.tscn"
+const Title := "res://World/TitleScreen/TitleScreen.tscn"
+const Tutorial := "res://World/Tutorial/Tutorial.tscn"
+var rootScene := "res://World/TitleScreen/TitleScreen.tscn"
+
+# --------- Scene Stack Variables -------------------
+var history = []
+var saved = null
+var scene
+var prevScene
+
+# ----------- Player Vars to keep track of ----------
+var playerOVPosition = Vector2(0,0)
+var playerLand = true
+
+var current_scene = null
+
+# ----------- Time Variables ------------------------
+var monthTimer = Timer.new()
+var timeForMonth = 1
+var timeLeft = 5
+var month = 1
+var year = 1500
+const secondsPerYearOverviewMap = 5
+const timeCityMultiplier = 2
+
+
+
+# ============ Scene Load Events =======================
+func _ready():
+	var root = get_tree().get_root()
+	current_scene = root.get_child(root.get_child_count() - 1)
+	
+	monthTimer.connect("timeout", self, "on_month_timer_timeout")
+	monthTimer.one_shot = true
+	add_child(monthTimer)
+
+
+# =========== Scene Switching Logic =====================
+func goto(scene :String) -> void:	
+	prevScene = get_tree().get_current_scene().sceneName
+	#Confirm that the scene can be changed
+	match current_scene:
+		Overworld:
+			if scene != Combat or Title:
+				return
+		Combat:
+			if scene != Overworld:
+				return
+		Title:
+			if scene != Overworld or Tutorial:
+				return
+		Tutorial:
+			if scene != Title or Overworld:
+				return
+	
+	# Save current scene to the stack
+	if current_scene:
+		history.append(get_tree().get_current_scene().duplicate())
+
+	# Call to load the new scene
+	call_deferred("_deferred_goto", scene)
+
+
+func _deferred_goto(scene :String):
+	# It is now safe to remove the current scene
+	var root = get_tree().get_root()
+	root.remove_child(root.get_child(root.get_child_count()-1))
+
+	# Load the new scene.
+	var s = ResourceLoader.load(scene)
+
+	# Instance the new scene.
+	current_scene = s.instance()
+
+	# Add it to the active scene, as child of root.
+	get_tree().get_root().add_child(current_scene)
+
+	# Optionally, to make it compatible with the SceneTree.change_scene() API.
+	get_tree().set_current_scene(current_scene)
+	set_month_timer()
+
+
+func return_to_last():
+	prevScene = get_tree().get_current_scene().sceneName
+	#If there is a scene to return to that isn't the Title Screen
+	if not history.empty():
+		#Get the last scene visited from the END of the history array
+		var target = history.pop_back()
+		
+		call_deferred("_deferred_returnto", target)
+
+
+func _deferred_returnto(target):
+	var root = get_tree().get_root()
+	root.remove_child(root.get_child(root.get_child_count()-1))
+	
+	get_tree().get_root().add_child(target)
+	
+	get_tree().set_current_scene(target)
+	set_month_timer()
+
+
+# ============== Timer Logic =====================
+func set_month_timer():
+	scene = get_tree().get_current_scene()
+	
+	if prevScene == "Combat":
+		timeLeft = timeLeft * timeCityMultiplier
+	elif prevScene == "Title":
+		timeLeft = secondsPerYearOverviewMap * timeCityMultiplier
+	else:
+		timeLeft = monthTimer.time_left
+	
+	monthTimer.stop()
+	#print("Pre: ", timeLeft)
+	
+	if scene.sceneName == "Overworld":
+		timeLeft = timeLeft / timeCityMultiplier
+		monthTimer.start(timeLeft)
+		#print("PostTimeLeft ", timeLeft)
+	elif scene.sceneName == "City":
+		timeLeft = timeLeft * timeCityMultiplier
+		monthTimer.start(timeLeft)
+		#print("PostTimeLeft ", timeLeft)
+
+
+func on_month_timer_timeout():
+	scene = get_tree().get_current_scene()
+	
+	if scene.sceneName == "Overworld":
+		monthTimer.start(secondsPerYearOverviewMap)
+	elif scene.sceneName == "City":
+		monthTimer.start(secondsPerYearOverviewMap * timeCityMultiplier)
+
+	print(month, "/", year)
+	month += 1
+	if month == 13:
+		month = 1
+		year += 1
+
+
