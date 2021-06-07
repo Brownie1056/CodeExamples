@@ -1,0 +1,116 @@
+extends CanvasLayer
+
+onready var items = get_node("/root/ItemDatabase")
+onready var inventoryCrafter = get_node("InventoryCreator")
+var inventory = {}
+
+# =========== On Scene Load ========================
+func _ready():
+	get_node("Background").visible = false
+
+
+# =========== On 'ShopInventory' Group Call ========
+func display_inventory(_inventory):
+	delete_children(get_node("Background/VScrollBar/ItemContainer"))
+	get_node("Background").visible = true
+	set_items_up(_inventory)
+
+
+# ========== Input =================================
+func _input(event):
+	if event.is_action_pressed("ui_cancel"):
+		get_node("Background").visible = false
+		inventory = {}
+
+# =========== Add Items to Screen ==================
+func set_items_up(_inventory):
+	inventory = _inventory
+	for type in inventory.keys():
+		print(type)
+		add_item_to_screen(type)
+
+
+func add_item_to_screen(type):
+	var item = items.get(type);
+	var slot = TextureButton.new()
+	var hbox = HBoxContainer.new()
+	var tRect1 = TextureRect.new()
+	var tRect2 = TextureRect.new()
+	var tRect3 = TextureRect.new()
+	var lbl1 = Label.new()
+	var lbl2 = Label.new()
+	
+	# Set up TextureButton
+	slot.texture_normal = load("res://UI/UIArt/Inventory/SlotBackground.png")
+	slot.texture_pressed = load("res://UI/UIArt/Inventory/SlotBackgroundPressed.png")
+	slot.texture_hover = load("res://UI/UIArt/Inventory/SlotBackgroundHovered.png")
+	get_node("Background/VScrollBar/ItemContainer").add_child(slot)
+	
+	
+	# Add Hbox to TextureButton
+	var newSlot = get_node(slot.get_path())
+	newSlot.add_child(hbox)
+	
+	#Add tRect1 to HBox
+	var hboxAdd = get_node(hbox.get_path())
+	tRect1.rect_min_size.x = 50
+	tRect1.rect_min_size.y = 49
+	tRect1.texture = item.resource
+	hboxAdd.add_child(tRect1)
+	
+	#Add tRect2 to Hbox
+	tRect2.rect_min_size.x = 240
+	tRect2.rect_min_size.y = 49
+	hboxAdd.add_child(tRect2)
+	
+	#Add Label to tRect2
+	var tRect2Add = get_node(tRect2.get_path())
+	lbl1.set_align(1)
+	lbl1.set_valign(1)
+	lbl1.rect_size.x = 249
+	lbl1.rect_size.y = 49
+	#lbl1.font_color = Color(0,0,0,0)
+	lbl1.text = item.name
+	tRect2Add.add_child(lbl1)
+	
+	#Add tRect3 to Hbox
+	tRect3.rect_min_size.x = 45
+	tRect3.rect_min_size.y = 49
+	hboxAdd.add_child(tRect3)
+	
+	#Add Label to tRect3
+	var tRect3Add = get_node(tRect3.get_path())
+	lbl2.set_align(1)
+	lbl2.set_valign(1)
+	lbl2.rect_size.x = 45
+	lbl2.rect_size.y = 49
+	#lbl1.font_color = Color(0,0,0,0)
+	lbl2.text = String(inventory.get(type))
+	tRect3Add.add_child(lbl2)
+	
+	#Create pressed function with label's name
+	slot.connect("pressed", self, "on_item_pressed", [type])
+
+# ============= When an Item is pressed ===================
+func on_item_pressed(type):
+	var itemQuantity = inventory.get(type)
+	
+	if itemQuantity > 1:
+		inventory[type] = itemQuantity - 1
+	elif itemQuantity > 0 and inventory.keys().has(type):
+		inventory[type] = itemQuantity - 1
+	else:
+		if inventory.keys().has(type):
+			pass
+		else:
+			inventory.erase(type)
+	
+	#Removes all children and readds them. Only way I could get the tree to 
+	#refresh to the updated value
+	delete_children(get_node("Background/VScrollBar/ItemContainer"))
+	set_items_up(inventory)
+
+func delete_children(node):
+	for n in node.get_children():
+		node.remove_child(n)
+		n.queue_free()
