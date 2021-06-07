@@ -1,0 +1,54 @@
+extends Node2D
+
+# Dock Rotation Notes
+#	0 = no rotation
+#	1 = 90 degree rotation
+# 	2 = 180 degree rotation
+#	3 = 270 degree rotation
+var dockRotation = 0
+var recentlyUsedDock = false
+
+
+# ============ On Scene Creation functions ==================
+func _ready():
+	determineDockRotation()
+
+
+func determineDockRotation():
+	var temp = rad2deg(get_global_transform().get_rotation())
+	if temp == 0:
+		dockRotation = 0
+	elif temp > 89 and temp < 91:
+		dockRotation = 1
+	elif temp > 179 and temp < 181:
+		dockRotation = 2
+	elif (temp > 269 and temp < 271) or (temp < -89 and temp > -91):
+		dockRotation = 3
+	else:
+		print("Dock is not set up right")
+
+
+# ============== Body Entered functions ====================
+func _on_Area2D_body_entered(body):
+	#Get Docks global position
+	var position = get_global_transform().origin
+	
+	#Boolean used so there's a delay on the player being able to jump back into the dock
+	if not recentlyUsedDock:
+		recentlyUsedDock = true
+		
+		#The player ship enters the dock region
+		if body.collision_layer == 2:
+			get_tree().call_group("Dock", "shipEntersDock", position, dockRotation)
+			
+		
+		#The player land sprite enters the dock region
+		if body.collision_layer == 4: 
+			get_tree().call_group("Dock", "playerEntersDock", position, dockRotation)
+		
+		$Timer.start(1)
+		body.queue_free()
+
+
+func _on_Timer_timeout():
+	recentlyUsedDock = false
